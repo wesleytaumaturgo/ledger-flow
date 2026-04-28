@@ -1,9 +1,25 @@
+# Maven
 target/
 *.class
 *.jar
 *.war
+
+# IDE
 .idea/
 *.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# OWASP reports (generated artifacts)
+dependency-check-report.html
+dependency-check-report.json
+
+# OS
 .DS_Store
+Thumbs.db
 *.log
+
+# Local config overrides (not tracked)
 application-local.yml
