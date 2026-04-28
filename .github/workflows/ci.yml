@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    # Testcontainers manages PostgreSQL via Docker at test runtime — no pre-provisioned DB needed.
+    # ubuntu-latest includes Docker; IntegrationTestBase uses postgres:16-alpine via @Container.
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build and run tests
+        env:
+          APP_NAME: ledger-flow
+          SPRING_PROFILES_ACTIVE: test
+        run: ./mvnw verify --batch-mode --no-transfer-progress
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: target/surefire-reports/
+
+  dependency-check:
+    name: OWASP Dependency Check
+    runs-on: ubuntu-latest
+    needs: build-and-test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: OWASP Dependency Check
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: |
+          ./mvnw dependency-check:check \
+            -DfailBuildOnCVSS=7 \
+            -DnvdApiKey=$NVD_API_KEY \
+            --batch-mode --no-transfer-progress
+
+      - name: Upload OWASP report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: owasp-dependency-check-report
+          path: target/dependency-check-report.html
