@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+  <!-- LOCAL / TEST: human-readable, colorized, includes traceId -->
+  <springProfile name="local,default,test">
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+      <encoder>
+        <pattern>%cyan(%d{HH:mm:ss.SSS}) [%X{traceId:-no-trace}] %highlight(%-5level) %magenta(%logger{36}) - %msg%n</pattern>
+      </encoder>
+    </appender>
+    <root level="INFO">
+      <appender-ref ref="CONSOLE" />
+    </root>
+  </springProfile>
+
+  <!-- PROD: structured JSON for log aggregators (Loki, ELK, Datadog, CloudWatch) -->
+  <springProfile name="prod">
+    <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+      <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+        <customFields>{"service":"${APP_NAME:-ledger-flow}","env":"prod"}</customFields>
+        <fieldNames>
+          <timestamp>timestamp</timestamp>
+          <message>message</message>
+          <logger>logger</logger>
+          <level>level</level>
+        </fieldNames>
+        <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+          <maxDepthPerCause>8</maxDepthPerCause>
+          <shortenedClassNameLength>36</shortenedClassNameLength>
+        </throwableConverter>
+      </encoder>
+    </appender>
+    <root level="INFO">
+      <appender-ref ref="JSON" />
+    </root>
+  </springProfile>
+
+</configuration>
