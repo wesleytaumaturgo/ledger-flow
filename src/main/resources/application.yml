@@ -1,0 +1,55 @@
+# LedgerFlow — application configuration
+# All sensitive values are read from environment variables.
+# See .env.example for required variables.
+
+spring:
+  application:
+    name: ${APP_NAME:ledger-flow}
+
+  threads:
+    virtual:
+      enabled: true          # Java 21 Virtual Threads — FORGE §4.1 REQUIRED
+
+  jpa:
+    open-in-view: false       # FORGE §4.1 REQUIRED — disables OSIV anti-pattern
+    properties:
+      hibernate:
+        default_batch_fetch_size: 25    # converts N+1 to IN-clause batches — FORGE §4.1
+        generate_statistics: false      # enable locally only (application-local.yml)
+    hibernate:
+      ddl-auto: validate               # Flyway owns DDL; Hibernate only validates
+
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USER}
+    password: ${DATABASE_PASSWORD}
+    hikari:
+      maximum-pool-size: 20            # FORGE §4.1 REQUIRED — deliberate, not default 10
+      minimum-idle: 2
+      connection-timeout: 20000        # 20s — fail fast on pool exhaustion
+      idle-timeout: 300000             # 5 min
+      max-lifetime: 1800000            # 30 min — recycle before DB closes connection
+      pool-name: HikariPool-LedgerFlow
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false         # no existing DB to baseline
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus   # FORGE §4.1 — only these four
+  endpoint:
+    health:
+      show-details: when-authorized              # FORGE §4.1 — NEVER 'always'
+  metrics:
+    tags:
+      application: ${APP_NAME:ledger-flow}
+      env: ${SPRING_PROFILES_ACTIVE:local}
+
+logging:
+  level:
+    root: INFO
+    com.wesleytaumaturgo.ledgerflow: INFO
