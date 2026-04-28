@@ -216,6 +216,20 @@
                 </executions>
             </plugin>
 
+            <!-- Maven Failsafe — runs *IT.java integration tests during verify -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
             <!-- OWASP Dependency Check — fails build on CVSS >= 7 -->
             <plugin>
                 <groupId>org.owasp</groupId>
