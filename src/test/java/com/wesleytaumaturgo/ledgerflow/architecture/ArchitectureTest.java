@@ -95,7 +95,7 @@ class ArchitectureTest {
         ArchRule noTransactionalOnApi = noClasses()
                 .that().resideInAPackage("..api..")
                 .should().beAnnotatedWith("org.springframework.transaction.annotation.Transactional")
-                .allowEmptyShould(true)
+                .allowEmptyShould(false)
                 .because("API layer must not manage transactions; delegates to application layer");
 
         ArchRule noTransactionalOnInfrastructure = noClasses()
@@ -122,7 +122,7 @@ class ArchitectureTest {
                 .that().areDeclaredInClassesThat()
                 .areAnnotatedWith("org.springframework.web.bind.annotation.RestController")
                 .should().beAnnotatedWith("org.springframework.web.bind.annotation.ExceptionHandler")
-                .allowEmptyShould(true)
+                .allowEmptyShould(false)
                 .because("Exception handling belongs exclusively in GlobalExceptionHandler (@RestControllerAdvice)");
 
         rule.check(classes);
@@ -158,7 +158,7 @@ class ArchitectureTest {
         ArchRule rule = noClasses()
                 .that().resideInAPackage("..api..")
                 .should().dependOnClassesThat().resideInAPackage("..command.domain..")
-                .allowEmptyShould(true)
+                .allowEmptyShould(false)
                 .because("API controllers depend on use cases (application layer), not domain internals");
 
         rule.check(classes);
@@ -177,13 +177,13 @@ class ArchitectureTest {
         ArchRule noDouble = noFields()
                 .that().areDeclaredInClassesThat().resideInAPackage("..command.domain..")
                 .should().haveRawType(double.class)
-                .allowEmptyShould(true)
+                .allowEmptyShould(false)
                 .because("double has precision loss — monetary values must use BigDecimal (STATE.md locked decision)");
 
         ArchRule noFloat = noFields()
                 .that().areDeclaredInClassesThat().resideInAPackage("..command.domain..")
                 .should().haveRawType(float.class)
-                .allowEmptyShould(true)
+                .allowEmptyShould(false)
                 .because("float has precision loss — monetary values must use BigDecimal (STATE.md locked decision)");
 
         noDouble.check(classes);
