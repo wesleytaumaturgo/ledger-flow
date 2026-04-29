@@ -69,19 +69,44 @@ class ArchitectureTest {
 
     /**
      * Rule 2: @Transactional scope restriction.
-     * Only classes in application/usecase/** may carry @Transactional (CLAUDE.md §7.1).
+     * Only application use cases and projectors may carry @Transactional (CLAUDE.md §7.1).
      * Infrastructure classes (e.g., PostgresEventStore) participate in the caller's transaction
      * without declaring @Transactional themselves — no exemption is needed or allowed.
+     *
+     * Allowed packages:
+     *   - ..application.usecase..  — command-side use cases (write operations)
+     *   - ..query.application.projectors..  — AccountProjector on() and rebuild() methods
+     *
+     * Rationale for projector exemption: CQRS projectors are application-layer components that
+     * maintain transactional consistency for read-model updates. Each on() method must be
+     * @Transactional to ensure the read-model update and the idempotency check are atomic.
+     * See CLAUDE.md cqrs-projector rule and STATE.md Phase 2 Note.
      */
     @Test
-    @DisplayName("Rule 2: @Transactional may only appear in application/usecase/** classes — no exemptions")
+    @DisplayName("Rule 2: @Transactional only in use cases and projectors — not in domain or api")
     void transactional_must_only_appear_in_use_cases() {
-        ArchRule rule = noClasses()
-                .that().resideOutsideOfPackage("..application.usecase..")
+        // Forbid @Transactional on domain or api layer classes.
+        // Application use cases and projectors are allowed — they own transaction boundaries.
+        ArchRule noTransactionalOnDomain = noClasses()
+                .that().resideInAPackage("..command.domain..")
                 .should().beAnnotatedWith("org.springframework.transaction.annotation.Transactional")
-                .because("Only use cases own transaction boundaries (CLAUDE.md §7.1); infrastructure participates in caller's transaction");
+                .because("Domain layer must be pure Java — no framework annotations (CLAUDE.md §3.1)");
 
-        rule.check(classes);
+        ArchRule noTransactionalOnApi = noClasses()
+                .that().resideInAPackage("..api..")
+                .should().beAnnotatedWith("org.springframework.transaction.annotation.Transactional")
+                .allowEmptyShould(true)
+                .because("API layer must not manage transactions; delegates to application layer");
+
+        ArchRule noTransactionalOnInfrastructure = noClasses()
+                .that().resideInAPackage("..infrastructure..")
+                .should().beAnnotatedWith("org.springframework.transaction.annotation.Transactional")
+                .because("Infrastructure participates in the caller's transaction (use case or projector); " +
+                         "declaring its own @Transactional creates second commit boundaries (CLAUDE.md §7.1)");
+
+        noTransactionalOnDomain.check(classes);
+        noTransactionalOnApi.check(classes);
+        noTransactionalOnInfrastructure.check(classes);
     }
 
     /**

@@ -41,9 +41,13 @@ class AccountSummaryMapperTest {
 
         // Assert
         assertThat(view.accountId()).isEqualTo(accountId);
+        assertThat(view.ownerId()).isEqualTo("owner-123");
         assertThat(view.balance()).isEqualByComparingTo(new BigDecimal("1500.75"));
         assertThat(view.currency()).isEqualTo("BRL");
         assertThat(view.transactionCount()).isEqualTo(5);
+        assertThat(view.lastEventSequence()).isEqualTo(5L);
+        assertThat(view.totalDeposited()).isEqualByComparingTo(new BigDecimal("2000.00"));
+        assertThat(view.totalWithdrawn()).isEqualByComparingTo(new BigDecimal("499.25"));
         assertThat(view.lastTransactionAt()).isEqualTo(lastTransactionAt);
     }
 

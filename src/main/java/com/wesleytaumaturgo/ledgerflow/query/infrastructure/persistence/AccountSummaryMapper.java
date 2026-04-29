@@ -12,6 +12,8 @@ public class AccountSummaryMapper {
 
     /**
      * Maps a JPA entity to an immutable BalanceView.
+     * Includes ownerId, lastEventSequence, totalDeposited, totalWithdrawn so the
+     * projector can check idempotency and compute incremental state updates.
      *
      * @param entity the account summary entity
      * @return immutable balance view
@@ -19,9 +21,13 @@ public class AccountSummaryMapper {
     public BalanceView toView(AccountSummaryEntity entity) {
         return new BalanceView(
                 entity.getAccountId(),
+                entity.getOwnerId(),
                 entity.getCurrentBalance(),
                 entity.getCurrency(),
                 entity.getTransactionCount(),
+                entity.getLastEventSequence(),
+                entity.getTotalDeposited(),
+                entity.getTotalWithdrawn(),
                 entity.getLastTransactionAt()
         );
     }

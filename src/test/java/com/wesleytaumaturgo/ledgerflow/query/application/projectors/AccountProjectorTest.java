@@ -186,7 +186,8 @@ class AccountProjectorTest {
         verify(summaryRepository).save(captor.capture());
         AccountSummaryData saved = captor.getValue();
         assertThat(saved.currentBalance()).isEqualByComparingTo("150.00");
-        assertThat(saved.totalDeposited()).isEqualByComparingTo("50.00");
+        // Existing totalDeposited=100.00 + credit of 50.00 = 150.00
+        assertThat(saved.totalDeposited()).isEqualByComparingTo("150.00");
         assertThat(saved.transactionCount()).isEqualTo(2);
         assertThat(saved.lastEventSequence()).isEqualTo(3L);
 
@@ -269,6 +270,7 @@ class AccountProjectorTest {
                                         String totalWithdrawn) {
         return new BalanceView(
             accountId,
+            "owner-test",
             new BigDecimal(balance),
             "BRL",
             txCount,
