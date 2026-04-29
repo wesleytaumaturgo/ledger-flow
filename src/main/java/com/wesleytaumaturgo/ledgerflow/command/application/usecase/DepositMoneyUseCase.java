@@ -41,6 +41,7 @@ public class DepositMoneyUseCase {
     private final Counter depositCounter;
     private final Counter retryCounter;
     private final Counter exhaustedCounter;
+    private final Counter commandsExecutedCounter;
 
     /**
      * Self-injection (D-05): @Lazy avoids circular-dependency BeanCreationException at startup.
@@ -60,6 +61,8 @@ public class DepositMoneyUseCase {
         this.depositCounter   = meterRegistry.counter("account.command.deposit.total");
         this.retryCounter     = meterRegistry.counter("account.command.retry.total", "operation", "deposit");
         this.exhaustedCounter = meterRegistry.counter("account.command.optimistic_lock_exhausted.total", "operation", "deposit");
+        this.commandsExecutedCounter = meterRegistry.counter(
+            "commands_executed_total", "command_type", "DepositMoney");
     }
 
     /**
@@ -79,7 +82,9 @@ public class DepositMoneyUseCase {
         int attempt = 0;
         while (true) {
             try {
-                return self.doExecute(cmd);
+                DepositMoneyResult result = self.doExecute(cmd);
+                commandsExecutedCounter.increment();
+                return result;
             } catch (OptimisticLockException e) {
                 attempt++;
                 if (attempt >= properties.maxRetries()) {

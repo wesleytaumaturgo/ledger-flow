@@ -28,11 +28,14 @@ public class CreateAccountUseCase {
 
     private final EventStoreRepository eventStore;
     private final Counter createCounter;
+    private final Counter commandsExecutedCounter;
     private final Timer createTimer;
 
     public CreateAccountUseCase(EventStoreRepository eventStore, MeterRegistry meterRegistry) {
         this.eventStore = eventStore;
         this.createCounter = meterRegistry.counter("account.command.create.total");
+        this.commandsExecutedCounter = meterRegistry.counter(
+            "commands_executed_total", "command_type", "CreateAccount");
         this.createTimer = meterRegistry.timer("usecase.execution.duration", "usecase", "create_account");
     }
 
@@ -43,6 +46,7 @@ public class CreateAccountUseCase {
             Account account = Account.createAccount(id, command.ownerId());
             eventStore.save(id.value(), AGGREGATE_TYPE, account.pullDomainEvents());
             createCounter.increment();
+            commandsExecutedCounter.increment();
             log.debug("Account created: {}", id.value());
             return new CreateAccountResult(id.value());
         });

@@ -112,4 +112,22 @@ class WithdrawMoneyUseCaseTest {
         verify(eventStore, times(2)).save(any(UUID.class), anyString(), any(List.class));
         assertThat(meterRegistry.counter("account.command.retry.total", "operation", "withdraw").count()).isEqualTo(1.0);
     }
+
+    @Test
+    @DisplayName("execute increments commands_executed_total counter with command_type=WithdrawMoney on success")
+    void execute_incrementsCommandsExecutedTotal() {
+        UUID accountId = UUID.randomUUID();
+        WithdrawMoneyCommand cmd = new WithdrawMoneyCommand(accountId, new BigDecimal("10.00"), BRL);
+        when(eventStore.load(accountId)).thenReturn(List.of(
+            new AccountCreated(UUID.randomUUID(), accountId, "owner-1",
+                Instant.parse("2026-01-01T10:00:00Z"), 1L),
+            new MoneyDeposited(UUID.randomUUID(), accountId, new BigDecimal("100.00"), BRL,
+                Instant.parse("2026-01-01T10:01:00Z"), 2L)
+        ));
+
+        useCase.execute(cmd);
+
+        assertThat(meterRegistry.counter("commands_executed_total", "command_type", "WithdrawMoney").count())
+            .isEqualTo(1.0);
+    }
 }

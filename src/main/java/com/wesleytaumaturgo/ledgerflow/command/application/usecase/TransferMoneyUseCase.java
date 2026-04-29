@@ -48,6 +48,7 @@ public class TransferMoneyUseCase {
     private final Counter transferCounter;
     private final Counter retryCounter;
     private final Counter exhaustedCounter;
+    private final Counter commandsExecutedCounter;
 
     @Autowired
     @Lazy
@@ -62,6 +63,8 @@ public class TransferMoneyUseCase {
         this.transferCounter  = meterRegistry.counter("account.command.transfer.total");
         this.retryCounter     = meterRegistry.counter("account.command.retry.total", "operation", "transfer");
         this.exhaustedCounter = meterRegistry.counter("account.command.optimistic_lock_exhausted.total", "operation", "transfer");
+        this.commandsExecutedCounter = meterRegistry.counter(
+            "commands_executed_total", "command_type", "TransferMoney");
     }
 
     TransferMoneyUseCase(EventStoreRepository eventStore,
@@ -76,7 +79,9 @@ public class TransferMoneyUseCase {
         int attempt = 0;
         while (true) {
             try {
-                return self.doExecute(cmd);
+                TransferMoneyResult result = self.doExecute(cmd);
+                commandsExecutedCounter.increment();
+                return result;
             } catch (OptimisticLockException e) {
                 attempt++;
                 if (attempt >= properties.maxRetries()) {

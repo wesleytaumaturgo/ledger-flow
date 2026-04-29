@@ -136,4 +136,28 @@ class TransferMoneyUseCaseTest {
 
         verify(eventStore, never()).save(any(UUID.class), anyString(), any(List.class));
     }
+
+    @Test
+    @DisplayName("execute increments commands_executed_total counter with command_type=TransferMoney on success")
+    void execute_incrementsCommandsExecutedTotal() {
+        UUID source = UUID.randomUUID();
+        UUID target = UUID.randomUUID();
+        TransferMoneyCommand cmd = new TransferMoneyCommand(source, target, new BigDecimal("30.00"), BRL);
+
+        when(eventStore.load(source)).thenReturn(List.of(
+            new AccountCreated(UUID.randomUUID(), source, "owner-A",
+                Instant.parse("2026-01-01T10:00:00Z"), 1L),
+            new MoneyDeposited(UUID.randomUUID(), source, new BigDecimal("100.00"), BRL,
+                Instant.parse("2026-01-01T10:01:00Z"), 2L)
+        ));
+        when(eventStore.load(target)).thenReturn(List.of(
+            new AccountCreated(UUID.randomUUID(), target, "owner-B",
+                Instant.parse("2026-01-01T10:00:00Z"), 1L)
+        ));
+
+        useCase.execute(cmd);
+
+        assertThat(meterRegistry.counter("commands_executed_total", "command_type", "TransferMoney").count())
+            .isEqualTo(1.0);
+    }
 }
