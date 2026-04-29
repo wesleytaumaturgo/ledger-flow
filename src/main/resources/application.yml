@@ -48,6 +48,9 @@ management:
     tags:
       application: ${APP_NAME:ledger-flow}
       env: ${SPRING_PROFILES_ACTIVE:local}
+    distribution:
+      percentiles:
+        replay.duration: 0.5,0.95,0.99
 
 logging:
   level:
