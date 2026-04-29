@@ -1,7 +1,9 @@
 package com.wesleytaumaturgo.ledgerflow.command.infrastructure.eventstore;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.wesleytaumaturgo.ledgerflow.command.domain.model.DomainEvent;
+import com.wesleytaumaturgo.ledgerflow.command.domain.model.event.AccountCreated;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,7 +18,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -34,16 +35,18 @@ class PostgresEventStoreTest {
         publisher = mock(ApplicationEventPublisher.class);
         eventDeserializer = mock(EventDeserializer.class);
         meterRegistry = new SimpleMeterRegistry();
-        eventStore = new PostgresEventStore(jdbc, new ObjectMapper(), publisher, eventDeserializer, meterRegistry);
+        ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
+        eventStore = new PostgresEventStore(jdbc, objectMapper, publisher, eventDeserializer, meterRegistry);
     }
 
     @Test
     @DisplayName("save increments events.stored.total by the number of events after successful INSERTs")
     void save_incrementsEventsStoredTotal_byEventCount() {
         UUID aggregateId = UUID.randomUUID();
-        DomainEvent event1 = aFakeDomainEvent(1L);
-        DomainEvent event2 = aFakeDomainEvent(2L);
-        when(jdbc.update(anyString(), any(Object[].class))).thenReturn(1);
+        DomainEvent event1 = anAccountCreated(aggregateId, 1L);
+        DomainEvent event2 = anAccountCreated(aggregateId, 2L);
+        when(jdbc.update(any(String.class), any(), any(), any(), any(), any(), any(), any(), any()))
+            .thenReturn(1);
 
         eventStore.save(aggregateId, "Account", List.of(event1, event2));
 
@@ -62,11 +65,8 @@ class PostgresEventStoreTest {
             .isEqualTo(0.0);
     }
 
-    private DomainEvent aFakeDomainEvent(long sequenceNumber) {
-        return new DomainEvent() {
-            @Override public UUID eventId() { return UUID.randomUUID(); }
-            @Override public Instant occurredAt() { return Instant.now(); }
-            @Override public long sequenceNumber() { return sequenceNumber; }
-        };
+    private static AccountCreated anAccountCreated(UUID accountId, long sequenceNumber) {
+        return new AccountCreated(UUID.randomUUID(), accountId, "owner-test",
+            Instant.parse("2026-01-01T10:00:00Z"), sequenceNumber);
     }
 }

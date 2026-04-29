@@ -34,6 +34,7 @@ public class WithdrawMoneyUseCase {
     private final Counter withdrawCounter;
     private final Counter retryCounter;
     private final Counter exhaustedCounter;
+    private final Counter commandsExecutedCounter;
 
     @Autowired
     @Lazy
@@ -48,6 +49,8 @@ public class WithdrawMoneyUseCase {
         this.withdrawCounter  = meterRegistry.counter("account.command.withdraw.total");
         this.retryCounter     = meterRegistry.counter("account.command.retry.total", "operation", "withdraw");
         this.exhaustedCounter = meterRegistry.counter("account.command.optimistic_lock_exhausted.total", "operation", "withdraw");
+        this.commandsExecutedCounter = meterRegistry.counter(
+            "commands_executed_total", "command_type", "WithdrawMoney");
     }
 
     WithdrawMoneyUseCase(EventStoreRepository eventStore,
@@ -62,7 +65,9 @@ public class WithdrawMoneyUseCase {
         int attempt = 0;
         while (true) {
             try {
-                return self.doExecute(cmd);
+                WithdrawMoneyResult result = self.doExecute(cmd);
+                commandsExecutedCounter.increment();
+                return result;
             } catch (OptimisticLockException e) {
                 attempt++;
                 if (attempt >= properties.maxRetries()) {

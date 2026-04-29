@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wesleytaumaturgo.ledgerflow.command.domain.exception.OptimisticLockException;
 import com.wesleytaumaturgo.ledgerflow.command.domain.model.DomainEvent;
 import com.wesleytaumaturgo.ledgerflow.command.domain.repository.EventStoreRepository;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -53,15 +54,18 @@ public class PostgresEventStore implements EventStoreRepository {
     private final ObjectMapper objectMapper;
     private final ApplicationEventPublisher publisher;
     private final EventDeserializer eventDeserializer;
+    private final MeterRegistry meterRegistry;
 
     public PostgresEventStore(JdbcTemplate jdbc,
                                ObjectMapper objectMapper,
                                ApplicationEventPublisher publisher,
-                               EventDeserializer eventDeserializer) {
+                               EventDeserializer eventDeserializer,
+                               MeterRegistry meterRegistry) {
         this.jdbc = jdbc;
         this.objectMapper = objectMapper;
         this.publisher = publisher;
         this.eventDeserializer = eventDeserializer;
+        this.meterRegistry = meterRegistry;
     }
 
     @Override
@@ -88,6 +92,11 @@ public class PostgresEventStore implements EventStoreRepository {
             log.warn("Optimistic lock conflict on aggregate {}: {}", aggregateId, e.getMessage());
             throw new OptimisticLockException(aggregateId);
         }
+
+        // Increment after all INSERTs succeed, before event publication.
+        // Tags with aggregate_type for metric cardinality (NFR-015 / WARNING-2 resolved).
+        meterRegistry.counter("events.stored.total", "aggregate_type", aggregateType)
+                     .increment(events.size());
 
         // Publish events AFTER all INSERTs succeed.
         // Transaction boundary is owned by the calling use case (@Transactional on execute()).
