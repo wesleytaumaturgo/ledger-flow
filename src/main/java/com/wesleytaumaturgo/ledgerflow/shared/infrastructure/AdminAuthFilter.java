@@ -15,6 +15,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 
 /**
  * Security filter that validates the X-Admin-Key header for all /api/v1/admin/** requests.
@@ -62,8 +64,7 @@ public class AdminAuthFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         String providedKey = request.getHeader(AUTH_HEADER);
 
-        // NEVER compare or log the value of providedKey in log messages
-        if (providedKey == null || !providedKey.equals(adminApiKey)) {
+        if (!keysMatch(providedKey, adminApiKey)) {
             log.warn("Admin auth failed — missing or invalid X-Admin-Key header for {}",
                 request.getRequestURI());
 
@@ -85,5 +86,13 @@ public class AdminAuthFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    // Constant-time comparison prevents timing side-channel attacks on the admin key.
+    static boolean keysMatch(String provided, String expected) {
+        if (provided == null) return false;
+        return MessageDigest.isEqual(
+            provided.getBytes(StandardCharsets.UTF_8),
+            expected.getBytes(StandardCharsets.UTF_8));
     }
 }
