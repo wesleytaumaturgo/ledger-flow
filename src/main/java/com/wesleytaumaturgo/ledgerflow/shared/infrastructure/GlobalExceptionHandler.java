@@ -1,6 +1,7 @@
 package com.wesleytaumaturgo.ledgerflow.shared.infrastructure;
 
 import com.wesleytaumaturgo.ledgerflow.command.domain.exception.DomainException;
+import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.stream.Collectors;
 
@@ -63,6 +65,39 @@ public class GlobalExceptionHandler {
         problem.setTitle("VALIDATION_ERROR");
         problem.setProperty("errorCode", "VALIDATION_ERROR");
         return ResponseEntity.status(ex.getStatusCode()).body(problem);
+    }
+
+    /**
+     * Handles type conversion failures on path variables and request params.
+     * Example: UUID path variable receives a non-UUID string → 400 Bad Request.
+     * Without this handler the generic Exception handler returns 500 — incorrect.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ProblemDetail> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        String detail = "Invalid value '" + ex.getValue() + "' for parameter '" + ex.getName() + "'";
+        log.warn("Type mismatch: {}", detail);
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail);
+        problem.setTitle("VALIDATION_ERROR");
+        problem.setProperty("errorCode", "VALIDATION_ERROR");
+        return ResponseEntity.badRequest().body(problem);
+    }
+
+    /**
+     * Handles @Validated method parameter constraint violations (e.g., @Max on query params).
+     * Thrown by Spring when @Validated class-level validation fails — distinct from @Valid
+     * on @RequestBody which throws MethodArgumentNotValidException.
+     * Returns 400 Bad Request with field-level constraint detail.
+     */
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ProblemDetail> handleConstraintViolation(ConstraintViolationException ex) {
+        String detail = ex.getConstraintViolations().stream()
+                .map(v -> v.getPropertyPath() + ": " + v.getMessage())
+                .collect(Collectors.joining("; "));
+        log.warn("Constraint violation: {}", detail);
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail);
+        problem.setTitle("VALIDATION_ERROR");
+        problem.setProperty("errorCode", "VALIDATION_ERROR");
+        return ResponseEntity.badRequest().body(problem);
     }
 
     /**
