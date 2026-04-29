@@ -10,6 +10,7 @@ import com.wesleytaumaturgo.ledgerflow.command.application.usecase.WithdrawMoney
 import com.wesleytaumaturgo.ledgerflow.command.application.usecase.WithdrawMoneyUseCase;
 import com.wesleytaumaturgo.ledgerflow.command.domain.exception.AccountNotFoundException;
 import com.wesleytaumaturgo.ledgerflow.command.domain.exception.InsufficientFundsException;
+import com.wesleytaumaturgo.ledgerflow.command.domain.exception.InvalidAmountException;
 import com.wesleytaumaturgo.ledgerflow.command.domain.exception.OptimisticLockException;
 import com.wesleytaumaturgo.ledgerflow.command.domain.exception.SelfTransferNotAllowedException;
 import com.wesleytaumaturgo.ledgerflow.command.domain.model.Money;
@@ -97,15 +98,17 @@ class AccountCommandControllerTest {
     }
 
     @Test
-    @DisplayName("POST /deposit with non-positive amount returns 400 VALIDATION_ERROR")
-    void deposit_nonPositiveAmount_returns400() throws Exception {
+    @DisplayName("POST /deposit with zero amount returns 422 INVALID_AMOUNT")
+    void deposit_zeroAmount_returns422() throws Exception {
         UUID accountId = UUID.randomUUID();
+        when(depositMoneyUseCase.execute(any()))
+            .thenThrow(new InvalidAmountException("amount must be positive, got: 0"));
 
         mockMvc.perform(post("/api/v1/accounts/{id}/deposit", accountId)
                 .contentType(APPLICATION_JSON)
                 .content("{\"amount\":0,\"currency\":\"BRL\"}"))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"));
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.errorCode").value("INVALID_AMOUNT"));
     }
 
     @Test
@@ -178,6 +181,20 @@ class AccountCommandControllerTest {
                 .content("{\"currency\":\"BRL\"}"))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    @DisplayName("POST /withdraw with zero amount returns 422 INVALID_AMOUNT")
+    void withdraw_zeroAmount_returns422() throws Exception {
+        UUID accountId = UUID.randomUUID();
+        when(withdrawMoneyUseCase.execute(any()))
+            .thenThrow(new InvalidAmountException("amount must be positive, got: 0"));
+
+        mockMvc.perform(post("/api/v1/accounts/{id}/withdraw", accountId)
+                .contentType(APPLICATION_JSON)
+                .content("{\"amount\":0,\"currency\":\"BRL\"}"))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.errorCode").value("INVALID_AMOUNT"));
     }
 
     // ---------------- POST /api/v1/accounts/{id}/transfer ----------------
