@@ -193,8 +193,8 @@
                             <goal>check</goal>
                         </goals>
                         <configuration>
-                            <!-- haltOnFailure=false in Phase 1: no domain code yet -->
-                            <haltOnFailure>false</haltOnFailure>
+                            <!-- haltOnFailure=true (D-08): activated in Phase 2 once domain + application coverage reaches 80% -->
+                            <haltOnFailure>true</haltOnFailure>
                             <rules>
                                 <rule>
                                     <element>PACKAGE</element>

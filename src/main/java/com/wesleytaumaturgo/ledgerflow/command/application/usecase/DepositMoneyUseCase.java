@@ -51,6 +51,7 @@ public class DepositMoneyUseCase {
     @Lazy
     private DepositMoneyUseCase self;
 
+    @Autowired
     public DepositMoneyUseCase(EventStoreRepository eventStore,
                                 CommandProperties properties,
                                 MeterRegistry meterRegistry) {
