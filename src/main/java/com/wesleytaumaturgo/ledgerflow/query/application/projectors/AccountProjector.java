@@ -16,6 +16,7 @@ import com.wesleytaumaturgo.ledgerflow.shared.infrastructure.ProjectorFailedEven
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
@@ -50,8 +51,10 @@ public class AccountProjector {
     private final TransactionHistoryRepository historyRepository;
     private final ProjectorFailedEventTracker failedEventTracker;
     private final MeterRegistry meterRegistry;
-
     private final EventStoreRepository eventStoreRepository;
+
+    private final AtomicLong lastPublishedSequence = new AtomicLong(0L);
+    private final AtomicLong lastProcessedSequence = new AtomicLong(0L);
 
     public AccountProjector(AccountSummaryRepository summaryRepository,
                              TransactionHistoryRepository historyRepository,
@@ -64,9 +67,25 @@ public class AccountProjector {
         this.meterRegistry = meterRegistry;
         this.eventStoreRepository = eventStoreRepository;
 
-        // Gauge: tracks total failed events since startup
         Gauge.builder("projector.failed.events.count", failedEventTracker, ProjectorFailedEventTracker::size)
             .description("Number of domain events that failed projector processing since startup")
+            .register(meterRegistry);
+
+        Gauge.builder("projector.lag", this, p -> {
+                try {
+                    long lag = p.lastPublishedSequence.get() - p.lastProcessedSequence.get();
+                    if (lag < 0) {
+                        log.warn("projector.lag is negative: {} (published={}, processed={})",
+                            lag, p.lastPublishedSequence.get(), p.lastProcessedSequence.get());
+                    }
+                    return (double) lag;
+                } catch (Exception e) {
+                    log.warn("projector.lag gauge supplier error projectorName=account-projector", e);
+                    return 0.0;
+                }
+            })
+            .tag("projector_name", "account-projector")
+            .description("Lag between published and processed event sequence")
             .register(meterRegistry);
     }
 
@@ -75,12 +94,14 @@ public class AccountProjector {
     @EventListener
     @Transactional
     public void on(AccountCreated event) {
+        lastPublishedSequence.set(event.sequenceNumber());
         try {
             Optional<BalanceView> existing = summaryRepository.findById(event.accountId());
             if (isAlreadyProcessed(existing, event.sequenceNumber())) {
                 recordMetric("AccountCreated", "skipped");
                 log.debug("Skipping duplicate AccountCreated seq={} account={}",
                     event.sequenceNumber(), event.accountId());
+                lastProcessedSequence.set(event.sequenceNumber());
                 return;
             }
 
@@ -95,6 +116,7 @@ public class AccountProjector {
                 event.sequenceNumber(),
                 null
             ));
+            lastProcessedSequence.set(event.sequenceNumber());
             recordMetric("AccountCreated", "success");
             log.debug("AccountCreated projected: account={}", event.accountId());
         } catch (Exception e) {
@@ -109,10 +131,12 @@ public class AccountProjector {
     @EventListener
     @Transactional
     public void on(MoneyDeposited event) {
+        lastPublishedSequence.set(event.sequenceNumber());
         try {
             Optional<BalanceView> existing = summaryRepository.findById(event.accountId());
             if (isAlreadyProcessed(existing, event.sequenceNumber())) {
                 recordMetric("MoneyDeposited", "skipped");
+                lastProcessedSequence.set(event.sequenceNumber());
                 return;
             }
 
@@ -142,6 +166,7 @@ public class AccountProjector {
                 event.sequenceNumber()
             ));
 
+            lastProcessedSequence.set(event.sequenceNumber());
             recordMetric("MoneyDeposited", "success");
             log.debug("MoneyDeposited projected: account={} amount={}", event.accountId(), event.amount());
         } catch (Exception e) {
@@ -156,10 +181,12 @@ public class AccountProjector {
     @EventListener
     @Transactional
     public void on(MoneyWithdrawn event) {
+        lastPublishedSequence.set(event.sequenceNumber());
         try {
             Optional<BalanceView> existing = summaryRepository.findById(event.accountId());
             if (isAlreadyProcessed(existing, event.sequenceNumber())) {
                 recordMetric("MoneyWithdrawn", "skipped");
+                lastProcessedSequence.set(event.sequenceNumber());
                 return;
             }
 
@@ -189,6 +216,7 @@ public class AccountProjector {
                 event.sequenceNumber()
             ));
 
+            lastProcessedSequence.set(event.sequenceNumber());
             recordMetric("MoneyWithdrawn", "success");
             log.debug("MoneyWithdrawn projected: account={} amount={}", event.accountId(), event.amount());
         } catch (Exception e) {
@@ -203,10 +231,12 @@ public class AccountProjector {
     @EventListener
     @Transactional
     public void on(TransferCompleted event) {
+        lastPublishedSequence.set(event.sequenceNumber());
         try {
             Optional<BalanceView> existing = summaryRepository.findById(event.accountId());
             if (isAlreadyProcessed(existing, event.sequenceNumber())) {
                 recordMetric("TransferCompleted", "skipped");
+                lastProcessedSequence.set(event.sequenceNumber());
                 return;
             }
 
@@ -251,6 +281,7 @@ public class AccountProjector {
                 event.sequenceNumber()
             ));
 
+            lastProcessedSequence.set(event.sequenceNumber());
             recordMetric("TransferCompleted", "success");
             log.debug("TransferCompleted projected: account={} direction={} amount={}",
                 event.accountId(), event.direction(), event.amount());
