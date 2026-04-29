@@ -53,3 +53,7 @@ logging:
   level:
     root: INFO
     com.wesleytaumaturgo.ledgerflow: INFO
+
+ledger:
+  command:
+    max-retries: 3
