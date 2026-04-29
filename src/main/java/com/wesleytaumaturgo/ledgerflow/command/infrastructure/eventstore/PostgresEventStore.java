@@ -6,6 +6,7 @@ import com.wesleytaumaturgo.ledgerflow.command.domain.exception.OptimisticLockEx
 import com.wesleytaumaturgo.ledgerflow.command.domain.model.DomainEvent;
 import com.wesleytaumaturgo.ledgerflow.command.domain.repository.EventStoreRepository;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -95,7 +96,7 @@ public class PostgresEventStore implements EventStoreRepository {
 
         // Increment after all INSERTs succeed, before event publication.
         // Tags with aggregate_type for metric cardinality (NFR-015 / WARNING-2 resolved).
-        meterRegistry.counter("events.stored.total", "aggregate_type", aggregateType)
+        meterRegistry.counter("events.stored", "aggregate_type", aggregateType)
                      .increment(events.size());
 
         // Publish events AFTER all INSERTs succeed.
@@ -104,22 +105,26 @@ public class PostgresEventStore implements EventStoreRepository {
         // ApplicationEventPublisher dispatches synchronously within the same thread.
         events.forEach(publisher::publishEvent);
 
-        log.debug("Saved {} event(s) for aggregate {}", events.size(), aggregateId);
+        log.info("Saved {} event(s) for aggregate {} type={}", events.size(), aggregateId, aggregateType);
     }
 
     @Override
     public List<DomainEvent> load(UUID aggregateId) {
-        List<DomainEvent> events = jdbc.query(LOAD_EVENTS,
-            (rs, rowNum) -> eventDeserializer.deserialize(
-                rs.getString("event_type"),
-                rs.getString("event_data"),
-                rs.getLong("sequence_number"),
-                rs.getTimestamp("occurred_at").toInstant()
-            ),
-            aggregateId);
-
-        log.debug("Loaded {} event(s) for aggregate {}", events.size(), aggregateId);
-        return events;
+        Timer.Sample sample = Timer.start(meterRegistry);
+        try {
+            List<DomainEvent> events = jdbc.query(LOAD_EVENTS,
+                (rs, rowNum) -> eventDeserializer.deserialize(
+                    rs.getString("event_type"),
+                    rs.getString("event_data"),
+                    rs.getLong("sequence_number"),
+                    rs.getTimestamp("occurred_at").toInstant()
+                ),
+                aggregateId);
+            log.info("Loaded {} event(s) for aggregate {}", events.size(), aggregateId);
+            return events;
+        } finally {
+            sample.stop(meterRegistry.timer("replay.duration", "aggregate_type", "Account"));
+        }
     }
 
     private String serialize(Object obj) {
