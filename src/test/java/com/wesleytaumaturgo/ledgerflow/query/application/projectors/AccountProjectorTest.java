@@ -11,6 +11,7 @@ import com.wesleytaumaturgo.ledgerflow.query.domain.model.AccountSummaryData;
 import com.wesleytaumaturgo.ledgerflow.query.domain.model.AccountSummaryRepository;
 import com.wesleytaumaturgo.ledgerflow.query.domain.model.TransactionHistoryRepository;
 import com.wesleytaumaturgo.ledgerflow.shared.infrastructure.ProjectorFailedEventTracker;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -51,16 +52,18 @@ class AccountProjectorTest {
     private EventStoreRepository eventStoreRepository;
 
     private ProjectorFailedEventTracker failedEventTracker;
+    private MeterRegistry meterRegistry;
     private AccountProjector projector;
 
     @BeforeEach
     void setUp() {
         failedEventTracker = new ProjectorFailedEventTracker();
+        meterRegistry = new SimpleMeterRegistry();
         projector = new AccountProjector(
             summaryRepository,
             historyRepository,
             failedEventTracker,
-            new SimpleMeterRegistry(),
+            meterRegistry,
             eventStoreRepository
         );
     }
@@ -262,6 +265,51 @@ class AccountProjectorTest {
         // Verify result
         assertThat(result.accountId()).isEqualTo(accountId);
         assertThat(result.rebuiltEvents()).isEqualTo(2);
+    }
+
+    // ── projector.lag Gauge ─────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("projector.lag is 0 after successful AccountCreated processing")
+    void projectorLag_isZeroAfterSuccessfulAccountCreated() {
+        UUID accountId = UUID.randomUUID();
+        AccountCreated event = new AccountCreated(
+            UUID.randomUUID(), accountId, "owner-1", Instant.now(), 5L);
+        when(summaryRepository.findById(accountId)).thenReturn(Optional.empty());
+
+        projector.on(event);
+
+        double lag = meterRegistry.get("projector.lag")
+            .tags("projector_name", "account-projector")
+            .gauge().value();
+        assertThat(lag).isEqualTo(0.0);
+    }
+
+    @Test
+    @DisplayName("projector.lag is 0 after successful MoneyDeposited processing")
+    void projectorLag_isZeroAfterSuccessfulMoneyDeposited() {
+        UUID accountId = UUID.randomUUID();
+        BalanceView existing = existingBalance(accountId, "100.00", 0, 1L, "100.00", "0.00");
+        MoneyDeposited event = new MoneyDeposited(
+            UUID.randomUUID(), accountId, new BigDecimal("50.00"), "BRL", Instant.now(), 2L);
+        when(summaryRepository.findById(accountId)).thenReturn(Optional.of(existing));
+
+        projector.on(event);
+
+        double lag = meterRegistry.get("projector.lag")
+            .tags("projector_name", "account-projector")
+            .gauge().value();
+        assertThat(lag).isEqualTo(0.0);
+    }
+
+    @Test
+    @DisplayName("projector.lag gauge supplier does not propagate exception")
+    void projectorLag_gaugeSupplier_doesNotPropagate() {
+        // Gauge is registered in constructor — just confirm it's there and doesn't throw
+        assertThat(meterRegistry.get("projector.lag")
+            .tags("projector_name", "account-projector")
+            .gauge().value())
+            .isNotNaN();
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────────
