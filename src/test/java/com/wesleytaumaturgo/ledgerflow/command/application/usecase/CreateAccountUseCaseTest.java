@@ -46,6 +46,17 @@ class CreateAccountUseCaseTest {
     }
 
     @Test
+    @DisplayName("execute increments commands_executed_total counter with command_type=CreateAccount on success")
+    void execute_incrementsCommandsExecutedTotal() {
+        CreateAccountCommand cmd = new CreateAccountCommand("owner-1");
+
+        useCase.execute(cmd);
+
+        assertThat(meterRegistry.counter("commands_executed_total", "command_type", "CreateAccount").count())
+            .isEqualTo(1.0);
+    }
+
+    @Test
     @DisplayName("CreateAccountCommand with null ownerId throws NullPointerException at construction")
     void command_nullOwnerId_throws() {
         assertThatThrownBy(() -> new CreateAccountCommand(null))

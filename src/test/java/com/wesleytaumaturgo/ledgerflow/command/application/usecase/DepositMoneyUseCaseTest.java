@@ -133,4 +133,20 @@ class DepositMoneyUseCaseTest {
         assertThatThrownBy(() -> useCase.execute(cmd))
             .isInstanceOf(InvalidAmountException.class);
     }
+
+    @Test
+    @DisplayName("execute increments commands_executed_total counter with command_type=DepositMoney on success")
+    void execute_incrementsCommandsExecutedTotal() {
+        UUID accountId = UUID.randomUUID();
+        DepositMoneyCommand cmd = new DepositMoneyCommand(accountId, new BigDecimal("50.00"), BRL);
+        AccountCreated created = new AccountCreated(
+            UUID.randomUUID(), accountId, "owner-1",
+            Instant.parse("2026-01-01T10:00:00Z"), 1L);
+        when(eventStore.load(accountId)).thenReturn(List.of(created));
+
+        useCase.execute(cmd);
+
+        assertThat(meterRegistry.counter("commands_executed_total", "command_type", "DepositMoney").count())
+            .isEqualTo(1.0);
+    }
 }
