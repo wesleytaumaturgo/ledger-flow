@@ -137,6 +137,8 @@ class AccountQueryControllerIT extends IntegrationTestBase {
         java.math.BigDecimal balance,
         String currency,
         int transactionCount,
+        java.math.BigDecimal totalDeposited,
+        java.math.BigDecimal totalWithdrawn,
         java.time.Instant lastTransactionAt
     ) {}
 

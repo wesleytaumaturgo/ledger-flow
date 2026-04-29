@@ -80,6 +80,8 @@ class AccountQueryControllerTest {
             .andExpect(jsonPath("$.balance").value(100.00))
             .andExpect(jsonPath("$.currency").value("BRL"))
             .andExpect(jsonPath("$.transactionCount").value(3))
+            .andExpect(jsonPath("$.totalDeposited").value(150.00))
+            .andExpect(jsonPath("$.totalWithdrawn").value(50.00))
             .andExpect(jsonPath("$.lastTransactionAt").exists());
     }
 
