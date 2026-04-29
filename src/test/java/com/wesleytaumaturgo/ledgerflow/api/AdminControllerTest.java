@@ -1,6 +1,5 @@
 package com.wesleytaumaturgo.ledgerflow.api;
 
-import com.wesleytaumaturgo.ledgerflow.command.domain.repository.EventStoreRepository;
 import com.wesleytaumaturgo.ledgerflow.query.application.projectors.AccountProjector;
 import com.wesleytaumaturgo.ledgerflow.query.application.projectors.RebuildResult;
 import org.junit.jupiter.api.DisplayName;
@@ -13,8 +12,6 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.UUID;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -47,9 +44,6 @@ class AdminControllerTest {
     @MockBean
     private AccountProjector accountProjector;
 
-    @MockBean
-    private EventStoreRepository eventStoreRepository;
-
     // ── 401 — missing X-Admin-Key ───────────────────────────────────────────────
 
     @Test
@@ -81,7 +75,7 @@ class AdminControllerTest {
     @DisplayName("POST /rebuild with correct X-Admin-Key returns 200 with accountId and rebuiltEvents")
     void rebuild_correctKey_returns200WithResult() throws Exception {
         UUID accountId = UUID.fromString("11111111-1111-1111-1111-111111111111");
-        when(accountProjector.rebuild(eq(accountId), any()))
+        when(accountProjector.rebuild(accountId))
             .thenReturn(new RebuildResult(accountId, 5));
 
         mockMvc.perform(post("/api/v1/admin/accounts/{id}/rebuild", accountId)
@@ -97,7 +91,7 @@ class AdminControllerTest {
     @DisplayName("POST /rebuild with correct key and no events returns 200 with rebuiltEvents=0")
     void rebuild_correctKey_noEvents_returns200WithZero() throws Exception {
         UUID accountId = UUID.fromString("22222222-2222-2222-2222-222222222222");
-        when(accountProjector.rebuild(eq(accountId), any()))
+        when(accountProjector.rebuild(accountId))
             .thenReturn(new RebuildResult(accountId, 0));
 
         mockMvc.perform(post("/api/v1/admin/accounts/{id}/rebuild", accountId)

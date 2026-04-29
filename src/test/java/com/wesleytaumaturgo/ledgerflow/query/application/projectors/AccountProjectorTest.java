@@ -60,7 +60,8 @@ class AccountProjectorTest {
             summaryRepository,
             historyRepository,
             failedEventTracker,
-            new SimpleMeterRegistry()
+            new SimpleMeterRegistry(),
+            eventStoreRepository
         );
     }
 

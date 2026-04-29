@@ -51,14 +51,18 @@ public class AccountProjector {
     private final ProjectorFailedEventTracker failedEventTracker;
     private final MeterRegistry meterRegistry;
 
+    private final EventStoreRepository eventStoreRepository;
+
     public AccountProjector(AccountSummaryRepository summaryRepository,
                              TransactionHistoryRepository historyRepository,
                              ProjectorFailedEventTracker failedEventTracker,
-                             MeterRegistry meterRegistry) {
+                             MeterRegistry meterRegistry,
+                             EventStoreRepository eventStoreRepository) {
         this.summaryRepository = summaryRepository;
         this.historyRepository = historyRepository;
         this.failedEventTracker = failedEventTracker;
         this.meterRegistry = meterRegistry;
+        this.eventStoreRepository = eventStoreRepository;
 
         // Gauge: tracks total failed events since startup
         Gauge.builder("projector.failed.events.count", failedEventTracker, ProjectorFailedEventTracker::size)
@@ -260,7 +264,19 @@ public class AccountProjector {
     // ── Rebuild ─────────────────────────────────────────────────────────────────
 
     /**
-     * Rebuilds read model for a single account from the event store.
+     * Rebuilds read model for a single account from the injected event store.
+     * Called by AdminController — avoids exposing EventStoreRepository to the api layer.
+     *
+     * @param accountId the account to rebuild
+     * @return result containing account ID and number of events replayed
+     */
+    @Transactional
+    public RebuildResult rebuild(UUID accountId) {
+        return rebuild(accountId, this.eventStoreRepository);
+    }
+
+    /**
+     * Rebuilds read model for a single account from the given event store.
      * Deletes existing account_summary and transaction_history rows, then replays
      * all events. Because the summary row is deleted first, idempotency skipping
      * does not apply — all replayed events are processed fresh.
