@@ -123,6 +123,8 @@ public class PostgresEventStore implements EventStoreRepository {
             log.info("Loaded {} event(s) for aggregate {}", events.size(), aggregateId);
             return events;
         } finally {
+            // "Account" is the only aggregate type in this single-aggregate system.
+            // If a second aggregate is added, add aggregateType to the load() interface signature.
             sample.stop(meterRegistry.timer("replay.duration", "aggregate_type", "Account"));
         }
     }

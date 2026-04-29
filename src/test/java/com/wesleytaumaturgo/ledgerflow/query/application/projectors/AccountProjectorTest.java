@@ -303,6 +303,26 @@ class AccountProjectorTest {
     }
 
     @Test
+    @DisplayName("projector.lag is positive after a failed event — signals pending retries")
+    void projectorLag_isPositiveAfterFailedEvent() {
+        UUID accountId = UUID.randomUUID();
+        AccountCreated event = new AccountCreated(
+            UUID.randomUUID(), accountId, "owner-1", Instant.now(), 3L);
+
+        when(summaryRepository.findById(accountId)).thenReturn(Optional.empty());
+        org.mockito.Mockito.doThrow(new RuntimeException("DB error"))
+            .when(summaryRepository).save(any());
+
+        projector.on(event);
+
+        double lag = meterRegistry.get("projector.lag")
+            .tags("projector_name", "account-projector")
+            .gauge().value();
+        // lastPublishedSequence advanced but lastProcessedSequence did not — lag > 0
+        assertThat(lag).isGreaterThan(0.0);
+    }
+
+    @Test
     @DisplayName("projector.lag gauge supplier does not propagate exception")
     void projectorLag_gaugeSupplier_doesNotPropagate() {
         // Gauge is registered in constructor — just confirm it's there and doesn't throw

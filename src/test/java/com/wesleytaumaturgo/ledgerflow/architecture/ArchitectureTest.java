@@ -90,6 +90,7 @@ class ArchitectureTest {
         ArchRule noTransactionalOnDomain = noClasses()
                 .that().resideInAPackage("..command.domain..")
                 .should().beAnnotatedWith("org.springframework.transaction.annotation.Transactional")
+                .allowEmptyShould(false)
                 .because("Domain layer must be pure Java — no framework annotations (CLAUDE.md §3.1)");
 
         ArchRule noTransactionalOnApi = noClasses()
@@ -101,6 +102,7 @@ class ArchitectureTest {
         ArchRule noTransactionalOnInfrastructure = noClasses()
                 .that().resideInAPackage("..infrastructure..")
                 .should().beAnnotatedWith("org.springframework.transaction.annotation.Transactional")
+                .allowEmptyShould(false)
                 .because("Infrastructure participates in the caller's transaction (use case or projector); " +
                          "declaring its own @Transactional creates second commit boundaries (CLAUDE.md §7.1)");
 

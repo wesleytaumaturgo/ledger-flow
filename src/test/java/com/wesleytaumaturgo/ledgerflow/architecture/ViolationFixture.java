@@ -38,7 +38,7 @@ class ViolationFixture {
     }
 
     @Test
-    @DisplayName("Rule 4 negative: domain must not depend on infrastructure — detects import violation")
+    @DisplayName("Rule 4 negative: application must not depend on infrastructure — detects import violation")
     void applicationMustNotImportInfrastructure_detectsViolation() {
         JavaClasses violating = new ClassFileImporter()
             .importClasses(InfrastructureUsingApplicationFixture.class);
