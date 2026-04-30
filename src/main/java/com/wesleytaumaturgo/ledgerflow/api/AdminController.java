@@ -74,7 +74,8 @@ public class AdminController {
         List<EventHistoryView> views = getEventHistoryUseCase.execute(id);
         List<EventHistoryResponse.EventEntry> entries = views.stream()
                 .map(v -> new EventHistoryResponse.EventEntry(
-                        v.eventId(), v.eventType(), v.sequenceNumber(), v.occurredAt()))
+                        v.eventId(), v.eventType(), v.eventData(), v.eventMetadata(),
+                        v.sequenceNumber(), v.occurredAt()))
                 .toList();
         return ResponseEntity.ok(new EventHistoryResponse(id, entries));
     }
