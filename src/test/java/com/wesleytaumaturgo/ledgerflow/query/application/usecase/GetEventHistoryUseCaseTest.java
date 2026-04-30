@@ -1,8 +1,8 @@
 package com.wesleytaumaturgo.ledgerflow.query.application.usecase;
 
 import com.wesleytaumaturgo.ledgerflow.command.domain.exception.AccountNotFoundException;
-import com.wesleytaumaturgo.ledgerflow.command.domain.model.DomainEvent;
 import com.wesleytaumaturgo.ledgerflow.command.domain.repository.EventStoreRepository;
+import com.wesleytaumaturgo.ledgerflow.command.domain.repository.RawEventRecord;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,17 +30,17 @@ class GetEventHistoryUseCaseTest {
     // ── Returns mapped views when events exist ──────────────────────────────────
 
     @Test
-    @DisplayName("execute returns EventHistoryView list when events exist")
+    @DisplayName("execute returns EventHistoryView list with eventData when events exist")
     void execute_whenEventsExist_returnsMappedViews() {
         UUID accountId = UUID.randomUUID();
         UUID eventId1 = UUID.randomUUID();
         UUID eventId2 = UUID.randomUUID();
         Instant now = Instant.now();
 
-        DomainEvent event1 = stubEvent(eventId1, now, 1L);
-        DomainEvent event2 = stubEvent(eventId2, now.plusSeconds(1), 2L);
+        RawEventRecord raw1 = stubRawEvent(eventId1, now, 1L);
+        RawEventRecord raw2 = stubRawEvent(eventId2, now.plusSeconds(1), 2L);
 
-        when(eventStoreRepository.load(accountId)).thenReturn(List.of(event1, event2));
+        when(eventStoreRepository.rawLoad(accountId)).thenReturn(List.of(raw1, raw2));
 
         List<EventHistoryView> views = useCase.execute(accountId);
 
@@ -48,7 +48,9 @@ class GetEventHistoryUseCaseTest {
 
         EventHistoryView first = views.get(0);
         assertThat(first.eventId()).isEqualTo(eventId1);
-        assertThat(first.eventType()).isEqualTo("StubDomainEvent");
+        assertThat(first.eventType()).isEqualTo("StubEvent");
+        assertThat(first.eventData()).isEqualTo("{\"key\":\"value\"}");
+        assertThat(first.eventMetadata()).isEqualTo("{}");
         assertThat(first.sequenceNumber()).isEqualTo(1L);
         assertThat(first.occurredAt()).isEqualTo(now);
 
@@ -63,7 +65,7 @@ class GetEventHistoryUseCaseTest {
     @DisplayName("execute throws AccountNotFoundException when event list is empty")
     void execute_whenNoEvents_throwsAccountNotFoundException() {
         UUID accountId = UUID.randomUUID();
-        when(eventStoreRepository.load(accountId)).thenReturn(List.of());
+        when(eventStoreRepository.rawLoad(accountId)).thenReturn(List.of());
 
         assertThatThrownBy(() -> useCase.execute(accountId))
                 .isInstanceOf(AccountNotFoundException.class);
@@ -71,10 +73,7 @@ class GetEventHistoryUseCaseTest {
 
     // ── Helpers ─────────────────────────────────────────────────────────────────
 
-    private DomainEvent stubEvent(UUID eventId, Instant occurredAt, long sequenceNumber) {
-        return new StubDomainEvent(eventId, occurredAt, sequenceNumber);
+    private RawEventRecord stubRawEvent(UUID eventId, Instant occurredAt, long sequenceNumber) {
+        return new RawEventRecord(eventId, "StubEvent", "{\"key\":\"value\"}", "{}", sequenceNumber, occurredAt);
     }
-
-    record StubDomainEvent(UUID eventId, Instant occurredAt, long sequenceNumber)
-            implements DomainEvent {}
 }
