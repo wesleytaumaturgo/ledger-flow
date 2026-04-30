@@ -2,6 +2,7 @@ package com.wesleytaumaturgo.ledgerflow.api;
 
 import com.wesleytaumaturgo.ledgerflow.query.application.projectors.AccountProjector;
 import com.wesleytaumaturgo.ledgerflow.query.application.projectors.RebuildResult;
+import com.wesleytaumaturgo.ledgerflow.query.application.usecase.GetEventHistoryUseCase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +44,9 @@ class AdminControllerTest {
 
     @MockBean
     private AccountProjector accountProjector;
+
+    @MockBean
+    private GetEventHistoryUseCase getEventHistoryUseCase;
 
     // ── 401 — missing X-Admin-Key ───────────────────────────────────────────────
 
