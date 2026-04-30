@@ -32,4 +32,15 @@ public interface EventStoreRepository {
      * @return ordered immutable list of events; empty if aggregate does not exist
      */
     List<DomainEvent> load(UUID aggregateId);
+
+    /**
+     * Load all events for an aggregate as raw records, including unparsed JSONB payload.
+     * Used by admin endpoints that need to expose raw event data without deserialization.
+     *
+     * Returns empty list when no events exist — caller decides 404 logic.
+     *
+     * @param aggregateId the aggregate's identity
+     * @return ordered list of raw event records; empty if aggregate does not exist
+     */
+    List<RawEventRecord> rawLoad(UUID aggregateId);
 }

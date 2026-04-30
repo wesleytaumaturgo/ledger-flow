@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wesleytaumaturgo.ledgerflow.command.domain.exception.OptimisticLockException;
 import com.wesleytaumaturgo.ledgerflow.command.domain.model.DomainEvent;
 import com.wesleytaumaturgo.ledgerflow.command.domain.repository.EventStoreRepository;
+import com.wesleytaumaturgo.ledgerflow.command.domain.repository.RawEventRecord;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
@@ -46,6 +47,13 @@ public class PostgresEventStore implements EventStoreRepository {
 
     private static final String LOAD_EVENTS = """
             SELECT event_type, event_data, event_metadata, sequence_number, occurred_at
+            FROM event_store
+            WHERE aggregate_id = ?
+            ORDER BY sequence_number ASC
+            """;
+
+    private static final String RAW_LOAD_EVENTS = """
+            SELECT id, event_type, event_data, event_metadata, sequence_number, occurred_at
             FROM event_store
             WHERE aggregate_id = ?
             ORDER BY sequence_number ASC
@@ -127,6 +135,27 @@ public class PostgresEventStore implements EventStoreRepository {
             // If a second aggregate is added, add aggregateType to the load() interface signature.
             sample.stop(meterRegistry.timer("replay.duration", "aggregate_type", "Account"));
         }
+    }
+
+    /**
+     * Returns all events for an aggregate as raw records without deserialization.
+     * Reads id, event_type, event_data, event_metadata, sequence_number, occurred_at
+     * from event_store, returning JSONB columns as raw String values.
+     *
+     * Does NOT publish events — read-only operation.
+     */
+    @Override
+    public List<RawEventRecord> rawLoad(UUID aggregateId) {
+        return jdbc.query(RAW_LOAD_EVENTS,
+            (rs, rowNum) -> new RawEventRecord(
+                UUID.fromString(rs.getString("id")),
+                rs.getString("event_type"),
+                rs.getString("event_data"),
+                rs.getString("event_metadata"),
+                rs.getLong("sequence_number"),
+                rs.getTimestamp("occurred_at").toInstant()
+            ),
+            aggregateId);
     }
 
     private String serialize(Object obj) {
