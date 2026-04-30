@@ -29,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Covers:
  *   - 401 when X-Admin-Key header is absent
  *   - 404 ACCOUNT_NOT_FOUND when use case throws AccountNotFoundException
- *   - 200 with correct EventHistoryResponse shape (accountId, events list)
+ *   - 200 with correct EventHistoryResponse shape including eventData field
  *
  * GET /api/v1/admin/accounts/{id}/events — REQ-event-history-audit / FR-013
  */
@@ -78,14 +78,15 @@ class AdminEventHistoryControllerTest {
     // ── 200 — valid key, events returned ───────────────────────────────────────
 
     @Test
-    @DisplayName("GET /events with valid key returns 200 with accountId and events list")
+    @DisplayName("GET /events with valid key returns 200 with accountId, events list, and eventData")
     void getEventHistory_correctKey_returns200WithEvents() throws Exception {
         UUID accountId = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
         UUID eventId = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc");
         Instant now = Instant.parse("2026-01-01T00:00:00Z");
 
         when(getEventHistoryUseCase.execute(accountId))
-                .thenReturn(List.of(new EventHistoryView(eventId, "AccountCreated", 1L, now)));
+                .thenReturn(List.of(new EventHistoryView(
+                        eventId, "AccountCreated", "{\"ownerId\":\"test\"}", "{}", 1L, now)));
 
         mockMvc.perform(get("/api/v1/admin/accounts/{id}/events", accountId)
                         .header("X-Admin-Key", VALID_KEY))
@@ -94,6 +95,8 @@ class AdminEventHistoryControllerTest {
                 .andExpect(jsonPath("$.events").isArray())
                 .andExpect(jsonPath("$.events[0].eventId").value(eventId.toString()))
                 .andExpect(jsonPath("$.events[0].eventType").value("AccountCreated"))
-                .andExpect(jsonPath("$.events[0].sequenceNumber").value(1));
+                .andExpect(jsonPath("$.events[0].sequenceNumber").value(1))
+                .andExpect(jsonPath("$.events[0].eventData").exists())
+                .andExpect(jsonPath("$.events[0].eventData.ownerId").value("test"));
     }
 }

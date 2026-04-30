@@ -90,10 +90,11 @@ class AdminEventHistoryIT extends IntegrationTestBase {
         assertThat(events.get(2).sequenceNumber()).isEqualTo(3L);
         assertThat(events.get(2).eventType()).isEqualTo("MoneyDeposited");
 
-        // Step 6: Each event has non-null eventId and occurredAt
+        // Step 6: Each event has non-null eventId, occurredAt, and eventData payload
         events.forEach(e -> {
             assertThat(e.eventId()).isNotNull();
             assertThat(e.occurredAt()).isNotNull();
+            assertThat(e.eventData()).isNotNull();
         });
     }
 
@@ -122,5 +123,6 @@ class AdminEventHistoryIT extends IntegrationTestBase {
 
     record EventHistoryBody(UUID accountId, List<EventEntry> events) {}
 
-    record EventEntry(UUID eventId, String eventType, long sequenceNumber, String occurredAt) {}
+    record EventEntry(UUID eventId, String eventType, Object eventData, Object eventMetadata,
+                      long sequenceNumber, String occurredAt) {}
 }
