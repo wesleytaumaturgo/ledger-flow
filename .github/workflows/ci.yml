@@ -60,7 +60,7 @@ jobs:
         run: |
           ./mvnw dependency-check:check \
             -DfailBuildOnCVSS=7 \
-            --DnvdApiKey=$NVD_API_KEY \
+            -DnvdApiKey=$NVD_API_KEY \
             -DnvdApiDelay=4000 \
             --batch-mode --no-transfer-progress
 
